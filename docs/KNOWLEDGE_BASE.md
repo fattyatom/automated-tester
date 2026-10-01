@@ -42,7 +42,8 @@ knowledge (a route, persona or rule written into its prompt), `kb-sync` updates 
 context` rather than embed them, so this second case should stay rare.
 
 The agents are tool-neutral (see [agents/README.md](../agents/README.md)): the same definitions
-run in Claude Code, GitHub Copilot and opencode.
+run in Claude Code and opencode, and any other agent runtime (e.g. GitHub Copilot) can use
+`agents/<name>.md` directly.
 
 ## Catalog MCP
 
@@ -76,14 +77,13 @@ Configure the server once per runtime, with credentials from the environment, ne
 |---|---|
 | Claude Code | `.mcp.json` (project) or `claude mcp add` |
 | opencode | `opencode.json` → `mcp.catalog` (a disabled placeholder is committed; set `CATALOG_MCP_URL` / `CATALOG_MCP_TOKEN` and `enabled: true` locally) |
-| GitHub Copilot | VS Code: `.vscode/mcp.json`; Copilot coding agent: the repository's MCP configuration in its settings, with secrets in the `copilot` environment |
+| Others (e.g. GitHub Copilot) | the tool's own MCP settings (VS Code: `.vscode/mcp.json`) |
 
 Options include the Atlassian Remote MCP server for Jira and Microsoft's Azure DevOps MCP server.
 
 ## Phases: building from scratch
 
-The `kb-build` playbook (`agents/playbooks/kb-build.md`; `/kb-build` in Claude Code and opencode,
-a prompt file in Copilot) runs these in order on one `kb/bootstrap-*` branch.
+The `kb-build` playbook (`agents/playbooks/kb-build.md`; `/kb-build` in Claude Code and opencode) runs these in order on one `kb/bootstrap-*` branch.
 
 **0 — Scope (human).** Pick the catalog and the scope query, the statuses that count as product
 behaviour (e.g. *Done*, *Ready for QA*; not *Backlog*), and the local paths that may be read.

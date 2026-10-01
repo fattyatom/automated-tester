@@ -9,6 +9,13 @@ test.describe('canonical agents → runtime adapters', () => {
     expect(checkAdapters('.')).toEqual({ missing: [], changed: [], orphaned: [] });
   });
 
+  test('a pre-commit hook regenerates and stages adapters when agent files change', () => {
+    const hook = fs.readFileSync('.githooks/pre-commit', 'utf8');
+    expect(hook).toContain('agents:sync -- --stage');
+    expect(fs.statSync('.githooks/pre-commit').mode & 0o111).toBeTruthy();
+    expect(JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts.prepare).toContain('core.hooksPath .githooks');
+  });
+
   test('the QA and knowledge-base agents and playbooks are all defined canonically', () => {
     const names = loadCanonical('.').map((c) => `${c.kind}:${c.name}`);
     for (const n of ['qa-cartographer', 'qa-ac-normalizer', 'qa-step-author', 'qa-explorer', 'qa-triager', 'kb-bootstrapper', 'kb-sync', 'kb-reviewer']) {
@@ -35,28 +42,27 @@ test.describe('canonical agents → runtime adapters', () => {
     const fm = (rel: string) => YAML.parse(out.get(rel)!.split('---')[1]);
 
     expect(fm('.claude/agents/reader.md')).toEqual({ name: 'reader', description: 'Reads.', tools: 'Read, Glob, Grep, Bash' });
-    expect(fm('.github/agents/reader.agent.md')).toEqual({ name: 'reader', description: 'Reads.', tools: ['read', 'search', 'execute'] });
     expect(fm('.opencode/agents/reader.md')).toEqual({ description: 'Reads.', mode: 'subagent', permission: { edit: 'deny', bash: 'allow', webfetch: 'deny' } });
     expect(fm('.claude/agents/syncer.md').tools).toBeUndefined();
-    expect(fm('.github/agents/syncer.agent.md').tools).toBeUndefined();
     expect(fm('.claude/skills/flow/SKILL.md')).toEqual({ name: 'flow', description: 'Does a flow.' });
-    expect(fm('.github/prompts/flow.prompt.md')).toMatchObject({ description: 'Does a flow.', agent: 'agent' });
     expect(fm('.opencode/commands/flow.md')).toEqual({ description: 'Does a flow.' });
+    expect([...out.keys()].some((k) => k.startsWith('.github/'))).toBe(false);
     expect(out.get('.claude/agents/reader.md')).toContain(`${MARKER} from agents/reader.md`);
     expect(out.get('.claude/agents/reader.md')!.trimEnd().endsWith('Read things.')).toBe(true);
 
     // Writing then checking is clean; a hand edit, a removed canonical and a stray generated file are caught.
-    writeAdapters(root);
+    expect(writeAdapters(root)).toHaveLength(out.size);
     expect(checkAdapters(root)).toEqual({ missing: [], changed: [], orphaned: [] });
-    fs.appendFileSync(path.join(root, '.github/agents/reader.agent.md'), 'edited by hand\n');
+    expect(writeAdapters(root)).toEqual([]);
+    fs.appendFileSync(path.join(root, '.opencode/agents/reader.md'), 'edited by hand\n');
     fs.rmSync(path.join(root, 'agents', 'syncer.md'));
     fs.writeFileSync(path.join(root, '.opencode/agents/handwritten.md'), '---\ndescription: mine\n---\nNot generated.\n');
     expect(checkAdapters(root)).toEqual({
       missing: [],
-      changed: ['.github/agents/reader.agent.md'],
-      orphaned: ['.claude/agents/syncer.md', '.github/agents/syncer.agent.md', '.opencode/agents/syncer.md'],
+      changed: ['.opencode/agents/reader.md'],
+      orphaned: ['.claude/agents/syncer.md', '.opencode/agents/syncer.md'],
     });
-    writeAdapters(root);
+    expect(writeAdapters(root)).toEqual(['.opencode/agents/reader.md', '.claude/agents/syncer.md', '.opencode/agents/syncer.md']);
     expect(fs.existsSync(path.join(root, '.claude/agents/syncer.md'))).toBe(false);
     expect(fs.existsSync(path.join(root, '.opencode/agents/handwritten.md'))).toBe(true);
   });

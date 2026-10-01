@@ -11,7 +11,7 @@ the vault from the product catalog.
   (`--vault <dir>` to look up a vault other than the configured one)
 - `npm run typecheck` · `npm run test:unit` — fast checks; run both before committing
 - `npm test` — everything against the demo app (or `QA_BASE_URL`)
-- `npm run agents:sync` — regenerate runtime adapters after editing anything in `agents/`
+- `npm run agents:sync` — regenerate runtime adapters from `agents/` (the pre-commit hook does this for you)
 
 ## Rules
 - Specs are data-driven from the plan; add new charters as planner items + a spec file in
@@ -30,9 +30,10 @@ the vault from the product catalog.
   their secrets never enter the vault.
 
 ## Agents
-Defined once, tool-neutrally, in `agents/` (format: agents/README.md); runtime copies in
-`.claude/`, `.github/agents|prompts/` and `.opencode/` are generated — edit the canonical file and
-run `npm run agents:sync`.
+Defined once, tool-neutrally, in `agents/` (format: agents/README.md); the copies in `.claude/` and
+`.opencode/` are generated. Edit the canonical file; the pre-commit hook (installed by
+`npm install`) regenerates and stages the copies, and `npm run test:unit` fails if they drift.
+Runtimes without generated copies (e.g. GitHub Copilot) use `agents/<name>.md` directly.
 
 | Agent | Job |
 |---|---|

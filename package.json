@@ -13,7 +13,8 @@
     "report": "playwright show-report qa-report/html",
     "typecheck": "tsc --noEmit",
     "agents:sync": "tsx src/agents/sync.ts",
-    "agents:check": "tsx src/agents/sync.ts --check"
+    "agents:check": "tsx src/agents/sync.ts --check",
+    "prepare": "git config core.hooksPath .githooks || exit 0"
   },
   "repository": {
     "type": "git",

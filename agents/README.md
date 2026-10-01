@@ -1,16 +1,25 @@
 # agents/ — canonical, tool-neutral agent definitions
 
 Every agent and playbook in this repo is defined **once**, here, in plain markdown. Runtime-specific
-files are generated from these by `npm run agents:sync` and checked by `npm run agents:check`
-(also covered by `npm run test:unit`). Never edit a generated file; it says so in its first line.
+files are generated from these; never edit a generated file (it says so in its first line).
 
-| Canonical | Claude Code | GitHub Copilot | opencode |
-|---|---|---|---|
-| `agents/<name>.md` | `.claude/agents/<name>.md` | `.github/agents/<name>.agent.md` | `.opencode/agents/<name>.md` (`mode: subagent`) |
-| `agents/playbooks/<name>.md` | `.claude/skills/<name>/SKILL.md` | `.github/prompts/<name>.prompt.md` | `.opencode/commands/<name>.md` |
+| Canonical | Claude Code | opencode |
+|---|---|---|
+| `agents/<name>.md` | `.claude/agents/<name>.md` | `.opencode/agents/<name>.md` (`mode: subagent`) |
+| `agents/playbooks/<name>.md` | `.claude/skills/<name>/SKILL.md` | `.opencode/commands/<name>.md` |
 
-Repo-wide rules for every runtime live in [`AGENTS.md`](../AGENTS.md) (read natively by Copilot and
-opencode; `CLAUDE.md` imports it).
+Repo-wide rules for every runtime live in [`AGENTS.md`](../AGENTS.md) (read natively by opencode and
+GitHub Copilot; `CLAUDE.md` imports it). Runtimes without an adapter, such as Copilot, use the
+canonical files directly: point them at `agents/<name>.md`.
+
+## Keeping the variants in sync
+
+| Mechanism | What it does |
+|---|---|
+| `npm run agents:sync` | Regenerates every adapter from `agents/`, and deletes generated files whose canonical source is gone. Hand-written files in the same folders are left alone. |
+| pre-commit hook (`.githooks/pre-commit`) | When a commit touches `agents/`, `src/agents/` or a generated folder, runs `agents:sync -- --stage`, so the regenerated files go into the same commit. `npm install` installs it (`prepare` sets `core.hooksPath`); run `git config core.hooksPath .githooks` if you skipped install. |
+| `npm run agents:check` | Fails if any adapter is missing, hand-edited or orphaned. |
+| `npm run test:unit` | Runs the same check, so the suite catches drift from commits that bypassed the hook (`--no-verify`). |
 
 ## Format
 
@@ -29,21 +38,20 @@ Plain instructions. No runtime-specific tool names or concepts.
 
 `tools` uses generic capabilities, mapped per runtime:
 
-| Capability | Meaning | Claude Code | Copilot | opencode permission |
-|---|---|---|---|---|
-| `read` | read files | Read | read | (always) |
-| `search` | find files / grep text | Glob, Grep | search | (always) |
-| `write` | create files | Write | edit | `edit: allow` |
-| `edit` | modify files | Edit | edit | `edit: allow` |
-| `shell` | run commands (`npm run …`, `git …`) | Bash | execute | `bash: allow` |
-| `web` | fetch URLs / search the web | WebFetch, WebSearch | web | `webfetch: allow` |
-| `catalog` | the product-catalog MCP server (Jira / Azure DevOps) | *all tools* | *all tools* | *(MCP tools allowed)* |
+| Capability | Meaning | Claude Code | opencode permission |
+|---|---|---|---|
+| `read` | read files | Read | (always) |
+| `search` | find files / grep text | Glob, Grep | (always) |
+| `write` | create files | Write | `edit: allow` |
+| `edit` | modify files | Edit | `edit: allow` |
+| `shell` | run commands (`npm run …`, `git …`) | Bash | `bash: allow` |
+| `web` | fetch URLs / search the web | WebFetch, WebSearch | `webfetch: allow` |
+| `catalog` | the product-catalog MCP server (Jira / Azure DevOps) | *all tools* | *(MCP tools allowed)* |
 
-An agent that needs `catalog` gets **no** tool allow-list in the Claude and Copilot adapters,
-because the MCP server's name is chosen by whoever configures it; both runtimes then give the agent
-every tool, including MCP ones. Configure the server per runtime: `.mcp.json` (Claude Code),
-`opencode.json` → `mcp` (opencode), the repository's Copilot MCP settings (Copilot coding agent) or
-`.vscode/mcp.json` (VS Code). See [docs/KNOWLEDGE_BASE.md](../docs/KNOWLEDGE_BASE.md#catalog-mcp).
+An agent that needs `catalog` gets **no** tool allow-list in the Claude adapter, because the MCP
+server's name is chosen by whoever configures it; Claude Code then gives the agent every tool,
+including MCP ones. Configure the server per runtime: `.mcp.json` (Claude Code), `opencode.json` →
+`mcp` (opencode), or your editor's MCP settings for other runtimes. See [docs/KNOWLEDGE_BASE.md](../docs/KNOWLEDGE_BASE.md#catalog-mcp).
 
 ## Writing style for canonical text
 

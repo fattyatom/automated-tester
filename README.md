@@ -124,11 +124,13 @@ frontmatter, conflicts that are flagged instead of overwritten, and a git workfl
 sync, one commit per catalog item, rollback by `git revert` and audit via `git blame` + commit
 trailers. A worked example ("Allow PayPal at payment") is in `examples/kb-worked-example/`.
 
-## Agents (Claude Code, GitHub Copilot, opencode)
+## Agents (Claude Code, opencode, any AGENTS.md-aware tool)
 
 Agents are defined once, tool-neutrally, in [`agents/`](agents/README.md); `npm run agents:sync`
-generates the runtime files (`.claude/agents` + skills, `.github/agents` + prompts,
-`.opencode/agents` + commands) and `npm run test:unit` fails if they drift. Repo rules for every
+generates the runtime files (`.claude/agents` + skills, `.opencode/agents` + commands). A
+pre-commit hook (installed by `npm install`) regenerates and stages them whenever agent files are
+committed, and `npm run test:unit` fails if they drift. Other tools (e.g. GitHub Copilot) read
+`AGENTS.md` and use the canonical files directly. Repo rules for every
 runtime are in [`AGENTS.md`](AGENTS.md). Playbooks: `qa-pipeline` (test the site) and `kb-build`
 (build the knowledge base).
 

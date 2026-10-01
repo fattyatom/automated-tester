@@ -1,18 +1,20 @@
 /**
  * agents:sync — renders the canonical, tool-neutral agent definitions into each runtime's format.
  *
- *   npm run agents:sync     write the adapters
- *   npm run agents:check    exit 1 if any adapter is missing, edited by hand, or orphaned
+ *   npm run agents:sync               write the adapters
+ *   npm run agents:sync -- --stage    write them and `git add` what changed (the pre-commit hook)
+ *   npm run agents:check              exit 1 if any adapter is missing, edited by hand, or orphaned
  *
  *   agents/<name>.md            → .claude/agents/<name>.md           (Claude Code)
- *                                 .github/agents/<name>.agent.md     (GitHub Copilot custom agent)
  *                                 .opencode/agents/<name>.md         (opencode, mode: subagent)
  *   agents/playbooks/<name>.md  → .claude/skills/<name>/SKILL.md     (Claude Code skill)
- *                                 .github/prompts/<name>.prompt.md   (Copilot prompt file)
  *                                 .opencode/commands/<name>.md       (opencode command)
+ *
+ * Other runtimes (e.g. GitHub Copilot) read the repo rules from AGENTS.md and the canonical files.
  *
  * Canonical frontmatter uses generic capabilities (see CAPABILITIES) instead of tool names.
  */
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import YAML from 'yaml';
@@ -65,12 +67,9 @@ export function loadCanonical(root = '.'): Canonical[] {
 const frontmatter = (o: Record<string, unknown>) => `---\n${YAML.stringify(o, { lineWidth: 0 }).trim()}\n---\n`;
 
 // A catalog (MCP) server is named by whoever configures it, so no adapter can list its tools.
-// Agents that need it get no tool allow-list, which every runtime treats as "all tools".
+// Agents that need it get no tool allow-list, which Claude Code treats as "all tools".
 const claudeTools: Record<Capability, string[]> = {
   read: ['Read'], search: ['Glob', 'Grep'], write: ['Write'], edit: ['Edit'], shell: ['Bash'], web: ['WebFetch', 'WebSearch'], catalog: [],
-};
-const copilotTools: Record<Capability, string[]> = {
-  read: ['read'], search: ['search'], write: ['edit'], edit: ['edit'], shell: ['execute'], web: ['web'], catalog: [],
 };
 const mapTools = (c: Canonical, table: Record<Capability, string[]>) => [...new Set(c.tools.flatMap((t) => table[t]))];
 
@@ -78,12 +77,10 @@ function agentAdapters(c: Canonical): [string, string][] {
   const body = `${banner(c.file)}\n\n${c.body}\n`;
   const all = c.tools.includes('catalog');
   const claude = { name: c.name, description: c.description, ...(all ? {} : { tools: mapTools(c, claudeTools).join(', ') }) };
-  const copilot = { name: c.name, description: c.description, ...(all ? {} : { tools: mapTools(c, copilotTools) }) };
   const can = (...t: Capability[]) => (t.some((x) => c.tools.includes(x)) ? 'allow' : 'deny');
   const opencode = { description: c.description, mode: 'subagent', permission: { edit: can('write', 'edit'), bash: can('shell'), webfetch: can('web') } };
   return [
     [`.claude/agents/${c.name}.md`, frontmatter(claude) + body],
-    [`.github/agents/${c.name}.agent.md`, frontmatter(copilot) + body],
     [`.opencode/agents/${c.name}.md`, frontmatter(opencode) + body],
   ];
 }
@@ -92,7 +89,6 @@ function playbookAdapters(c: Canonical): [string, string][] {
   const body = `${banner(c.file)}\n\n${c.body}\n`;
   return [
     [`.claude/skills/${c.name}/SKILL.md`, frontmatter({ name: c.name, description: c.description }) + body],
-    [`.github/prompts/${c.name}.prompt.md`, frontmatter({ name: c.name, description: c.description, agent: 'agent' }) + body],
     [`.opencode/commands/${c.name}.md`, frontmatter({ description: c.description }) + body],
   ];
 }
@@ -102,7 +98,7 @@ export function renderAdapters(canonical: Canonical[]): Map<string, string> {
   return new Map(canonical.flatMap((c) => (c.kind === 'agent' ? agentAdapters(c) : playbookAdapters(c))));
 }
 
-const ADAPTER_DIRS = ['.claude/agents', '.claude/skills', '.github/agents', '.github/prompts', '.opencode/agents', '.opencode/commands'];
+const ADAPTER_DIRS = ['.claude/agents', '.claude/skills', '.opencode/agents', '.opencode/commands'];
 
 /** Generated files on disk (they carry MARKER); hand-written runtime files are left alone. */
 export function generatedOnDisk(root = '.'): string[] {
@@ -131,14 +127,16 @@ export function checkAdapters(root = '.'): Drift {
   return drift;
 }
 
+/** Brings every adapter in line with agents/; returns the paths it created, rewrote or removed. */
 export function writeAdapters(root = '.'): string[] {
+  const drift = checkAdapters(root);
   const want = renderAdapters(loadCanonical(root));
-  for (const rel of generatedOnDisk(root)) if (!want.has(rel)) fs.rmSync(path.join(root, rel));
-  for (const [rel, content] of want) {
+  for (const rel of drift.orphaned) fs.rmSync(path.join(root, rel));
+  for (const rel of [...drift.missing, ...drift.changed]) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
-    fs.writeFileSync(path.join(root, rel), content);
+    fs.writeFileSync(path.join(root, rel), want.get(rel)!);
   }
-  return [...want.keys()];
+  return [...drift.missing, ...drift.changed, ...drift.orphaned];
 }
 
 if (require.main === module) {
@@ -151,7 +149,10 @@ if (require.main === module) {
     }
     console.log('Agent adapters are in sync with agents/.');
   } else {
-    const files = writeAdapters();
-    console.log(`Wrote ${files.length} adapter files from agents/:\n${files.map((f) => `  ${f}`).join('\n')}`);
+    const touched = writeAdapters();
+    if (touched.length && process.argv.includes('--stage')) execFileSync('git', ['add', '-A', '--', ...touched], { stdio: 'inherit' });
+    console.log(touched.length
+      ? `agents:sync updated ${touched.length} adapter file(s) from agents/${process.argv.includes('--stage') ? ' and staged them' : ''}:\n${touched.map((f) => `  ${f}`).join('\n')}`
+      : 'Agent adapters already in sync with agents/.');
   }
 }
