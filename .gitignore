@@ -1,0 +1,19 @@
+node_modules/
+qa-report/
+test-results/
+playwright-report/
+.qa/*
+!.qa/overlay/
+!.qa/README.md
+
+# Real credentials live next to the committed sample (like .env / .env.sample)
+credentials.md
+!examples/vault/credentials.md
+.env
+.env.*
+!.env.sample
+
+# Obsidian per-user state
+**/.obsidian/workspace*.json
+**/.obsidian/cache
+**/.trash/

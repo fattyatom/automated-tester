@@ -1,0 +1,35 @@
+{
+  "name": "automated-tester",
+  "version": "1.0.0",
+  "description": "Playwright-native QA tool: acceptance criteria + exploratory testing driven by an Obsidian knowledge graph",
+  "scripts": {
+    "qa": "tsx src/cli.ts",
+    "analyze": "tsx src/cli.ts analyze",
+    "demo": "tsx examples/demo-app/server.ts",
+    "test": "playwright test",
+    "test:unit": "playwright test --project=unit",
+    "test:acceptance": "playwright test --project=acceptance",
+    "test:explore": "playwright test --project=exploratory",
+    "report": "playwright show-report qa-report/html",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fattyatom/automated-tester.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/fattyatom/automated-tester/issues"
+  },
+  "homepage": "https://github.com/fattyatom/automated-tester#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^22.20.4",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
+  },
+  "private": true
+}
