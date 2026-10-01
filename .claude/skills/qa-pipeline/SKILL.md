@@ -1,0 +1,19 @@
+---
+name: qa-pipeline
+description: End-to-end QA run for a website from an Obsidian vault — analyze the knowledge graph, close gaps with subagents, run acceptance + exploratory Playwright suites, triage results. Use when asked to "test the site", "run QA", or "what's broken".
+---
+# QA pipeline
+
+Run these in order; skip a stage only if the user asks.
+
+1. **Configure** — confirm `qa.config.ts` points at the right `baseURL` (or `QA_BASE_URL`),
+   vault (`QA_VAULT`) and personas. Never commit real credentials; use env vars.
+2. **Map** — `npm run -s analyze`. If coverage.md shows gaps, delegate to the
+   `qa-cartographer` agent (strategy + overlay facts), then `qa-ac-normalizer` (executable ACs),
+   then `qa-step-author` (missing steps). These can run in parallel only if they touch different notes.
+3. **Run** — `npm test` (or `npm run test:acceptance` / `npm run test:explore`). Findings at or
+   above `explore.failOn` fail tests by design.
+4. **Explore** — for the riskiest area in `.qa/test-strategy.md`, delegate a session to
+   `qa-explorer`.
+5. **Triage** — delegate to `qa-triager`; present the summary table and the paths of the bug
+   drafts. Do not file tickets in Jira/ADO unless the user asks.

@@ -1,0 +1,7 @@
+node_modules/
+qa-report/
+test-results/
+playwright-report/
+.qa/*
+!.qa/overlay/
+!.qa/README.md
