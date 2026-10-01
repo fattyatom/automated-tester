@@ -52,6 +52,13 @@ too — they're listed in coverage.md and the `qa-ac-normalizer` agent turns the
 Run `npm run qa -- steps` for every supported phrasing. Full format:
 `docs/VAULT_CONVENTIONS.md` in the repo.
 
+## 4 — Keep it in sync with Jira / Azure DevOps
+
+Notes built from the product catalog carry `source:`, `source_updated:`, `synced_at:` and
+`keywords:` in their frontmatter. The `kb-sync` agent applies catalog changes since the watermark
+in `_sync/state.md` as a pull request; anything it can't decide goes to `_sync/Review Queue.md`.
+See `docs/KNOWLEDGE_BASE.md` in the repo.
+
 ## Map
 
 - [[Product Overview]]
