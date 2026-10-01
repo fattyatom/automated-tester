@@ -1,0 +1,5 @@
+#!/bin/sh
+# Keeps the generated agent files (.claude/, .opencode/) in step with the canonical agents/.
+# Installed by `npm install` (package.json "prepare" sets core.hooksPath to .githooks).
+git diff --cached --name-only | grep -qE '^(agents/|src/agents/|\.claude/(agents|skills)/|\.opencode/(agents|commands)/)' || exit 0
+npm run -s agents:sync -- --stage || exit 1

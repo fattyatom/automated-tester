@@ -42,7 +42,8 @@ in agent context packs.
 ## Ignored content
 
 - `%% ... %%` Obsidian comments: use them for example ACs that shouldn't run yet.
-- `Templates/`, `_templates/` and `.trash/` folders, and `sample.*.md` files.
+- `Templates/`, `_templates/`, `_sync/` (knowledge-base sync state and review queue) and `.trash/`
+  folders, and `sample.*.md` files.
 - Acceptance criteria inside notes with `type: guide` or `type: template`.
 
 ## How a note is classified
@@ -82,6 +83,29 @@ fields:                        # alternative to a ## Fields table
 3. Otherwise "assumed public" — listed in coverage.md so somebody confirms it.
 
 Roles inherit the same way. `npm run qa -- feature "<note>"` shows the result and the reason.
+
+### Provenance and lookup keys
+
+Written by the knowledge-base agents (and welcome on hand-written notes). They don't change what is
+tested; they say where a note's facts came from and help find the note that owns a concept.
+Full rules: [KNOWLEDGE_BASE.md → Provenance](KNOWLEDGE_BASE.md#provenance).
+
+```yaml
+---
+source: [SHOP-31, SHOP-142]            # catalog ids (Jira / ADO), "local:<path>", or "manual"; one or many
+source_updated: 2026-09-30T08:12:44Z   # newest `updated` among the sources at the last sync (UTC ISO 8601)
+synced_at: 2026-10-01T02:00:05Z        # when an agent last changed this note
+keywords: [payment, card, paypal]      # lookup terms this note owns (UI labels, domain nouns, synonyms)
+---
+```
+
+- `npm run qa -- find <term...>` ranks notes by title, alias, `keywords`, tags, `source` ids and
+  body mentions — e.g. `find paypal "payment method"` or `find SHOP-142`.
+- `npm run qa -- stale [--days N]` lists notes without provenance, not synced for N days (default
+  30), or with an open `> [!conflict]` callout.
+- Tag scenarios that come from a catalog item with its id (`@SHOP-142`) for traceability.
+- Conflicts a sync could not resolve go under a `## Sync conflicts` heading as
+  `> [!conflict] …` callouts; that section is never parsed as acceptance criteria.
 
 ## Acceptance criteria
 

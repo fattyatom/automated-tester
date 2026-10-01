@@ -1,0 +1,23 @@
+{
+  "_comment": "What the catalog MCP server returns for the story (normalised; Jira shape). Fictional data for docs/KNOWLEDGE_BASE.md.",
+  "id": "SHOP-142",
+  "type": "Story",
+  "status": "Ready for QA",
+  "summary": "Allow PayPal at payment",
+  "parent": { "id": "SHOP-10", "summary": "Checkout" },
+  "labels": ["payments", "checkout"],
+  "components": ["Web shop"],
+  "updated": "2026-09-30T08:12:44Z",
+  "description": "As a customer I want to pay with PayPal on the payment step so that I don't have to type my card details.",
+  "acceptanceCriteria": [
+    "The Payment page has a 'Payment method' choice: Card (default) or PayPal.",
+    "Choosing PayPal hides the card fields; the button reads 'Continue with PayPal'.",
+    "After approving on PayPal the customer returns to Review Order, which shows 'Paid with PayPal' instead of the masked card.",
+    "Card payments behave exactly as before."
+  ],
+  "links": [{ "type": "relates to", "id": "SHOP-87", "summary": "Idempotent order placement" }],
+  "comments": [
+    { "author": "PO", "created": "2026-09-29T15:02:10Z", "body": "Marketing would like guests to be able to pay with PayPal without logging in." },
+    { "author": "Dev", "created": "2026-09-30T08:10:01Z", "body": "Sandbox account for testing: buyer@example.com / password Hunter2!" }
+  ]
+}

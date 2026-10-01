@@ -133,8 +133,11 @@ export function parseNote(file: string, raw: string): Note {
   };
 }
 
-/** Obsidian template folders hold `{{placeholders}}`, not product facts. */
-const IGNORED_DIRS = /^(templates?|_templates?|\.trash|node_modules)$/i;
+/**
+ * Obsidian template folders hold `{{placeholders}}`, not product facts; `_sync/` holds the
+ * knowledge-base sync watermark and review queue (docs/KNOWLEDGE_BASE.md).
+ */
+const IGNORED_DIRS = /^(templates?|_templates?|_sync|\.trash|node_modules)$/i;
 /** `sample.credentials.md` etc. are committed templates, never product facts. */
 const IGNORED_FILES = /^sample\..+\.md$/i;
 

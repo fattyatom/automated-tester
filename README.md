@@ -16,8 +16,9 @@ what needs testing, then runs:
 - **Oracles on every page**: 5xx responses, uncaught JS errors, console errors, stack traces or DB
   errors in the page, and XSS payloads that actually execute.
 
-There's no code spelunking and no trawling through Jira or ADO: the vault is the source of truth, and gaps in
-it are reported as findings in their own right.
+There's no code spelunking and no trawling through Jira or ADO at test time: the vault is the source of
+truth, and gaps in it are reported as findings in their own right. Keeping the vault in step with
+Jira / ADO is a separate, reviewed process ([docs/KNOWLEDGE_BASE.md](docs/KNOWLEDGE_BASE.md)).
 
 ```
  Obsidian vault ──► parse (frontmatter, [[links]], #tags, sections)
@@ -31,7 +32,7 @@ it are reported as findings in their own right.
                       ▼                                                    │
             coverage.md (gaps)   ◄──── discovery crawl (docs vs reality) ◄─┘
                       │                                                    ▼
-          Claude Code subagents ──► .qa/overlay (facts, ACs)      qa-report/ findings.md,
+          QA agents ──────────────► .qa/overlay (facts, ACs)      qa-report/ findings.md,
           (cartographer, normalizer,  merged over the vault        traceability.md, html,
            step-author, explorer, triager)                        bug drafts (triager)
 ```
@@ -108,11 +109,30 @@ npm run qa -- context "Payment" -d 1      # note + linked notes as one context p
 npm run qa -- path "Admin Panel" "Payment Rules"
 npm run qa -- mermaid "Checkout Flow"     # diagram
 npm run qa -- steps                       # supported AC phrasing
+npm run qa -- find paypal "payment method"  # which notes own these terms (keywords, aliases, catalog ids)
+npm run qa -- stale --days 30             # notes by sync age / missing provenance / open conflicts
 ```
 
-## Subagents (Claude Code)
+Lookups take `--vault <dir>` to query a vault other than the configured one.
 
-The agents live in `.claude/agents/`, and the whole loop is the `qa-pipeline` skill.
+## Building and syncing the knowledge base
+
+[docs/KNOWLEDGE_BASE.md](docs/KNOWLEDGE_BASE.md) covers building the vault from scratch (harvest
+local agents and docs, import Jira / Azure DevOps through an MCP server, shape the graph, verify)
+and keeping it in sync: timestamp-governed changed-since runs, keyword impact analysis, provenance
+frontmatter, conflicts that are flagged instead of overwritten, and a git workflow with one PR per
+sync, one commit per catalog item, rollback by `git revert` and audit via `git blame` + commit
+trailers. A worked example ("Allow PayPal at payment") is in `examples/kb-worked-example/`.
+
+## Agents (Claude Code, opencode, any AGENTS.md-aware tool)
+
+Agents are defined once, tool-neutrally, in [`agents/`](agents/README.md); `npm run agents:sync`
+generates the runtime files (`.claude/agents` + skills, `.opencode/agents` + commands). A
+pre-commit hook (installed by `npm install`) regenerates and stages them whenever agent files are
+committed, and `npm run test:unit` fails if they drift. Other tools (e.g. GitHub Copilot) read
+`AGENTS.md` and use the canonical files directly. Repo rules for every
+runtime are in [`AGENTS.md`](AGENTS.md). Playbooks: `qa-pipeline` (test the site) and `kb-build`
+(build the knowledge base).
 
 | Agent | Job |
 |---|---|
@@ -121,9 +141,13 @@ The agents live in `.claude/agents/`, and the whole loop is the `qa-pipeline` sk
 | `qa-step-author` | Implements missing step definitions in `qa.config.ts`. |
 | `qa-explorer` | Hands-on exploratory sessions with Playwright scripts: multi-tab, slow network, locale, stale IDs… |
 | `qa-triager` | Classifies failures (bug, spec gap, test issue, environment), reproduces them, and drafts Jira/ADO-ready bug reports. |
+| `kb-bootstrapper` | Builds the vault: harvests local agent prompts/docs, imports the catalog, reconciles, opens a PR. |
+| `kb-sync` | Applies catalog changes since the watermark via keyword impact analysis; one PR per run. |
+| `kb-reviewer` | Audits conflicts, notes behind the catalog, deleted sources and orphans into the review queue. |
 
-Agents never edit the team's vault. They write to `.qa/overlay/`, which merges over the vault by
-note name and is meant for review before promoting.
+QA agents never edit the team's vault. They write to `.qa/overlay/`, which merges over the vault by
+note name and is meant for review before promoting. Only the `kb-*` agents change a vault, on a
+`kb/*` branch through a reviewed PR.
 
 ## Outputs
 
@@ -141,6 +165,8 @@ src/planner/    test plan + coverage/gap report
 src/ac/         step library
 src/explore/    QaSession (oracles, findings), interaction helpers, flow walker
 src/report/     findings/traceability reporter
+src/agents/     agents:sync — canonical agents/ → runtime adapters
+agents/         canonical agent + playbook definitions (tool-neutral)
 tests/          acceptance.spec.ts, exploratory/*.spec.ts, unit/
 vault/          starter vault for YOUR product (sample.credentials.md, templates, guide)
 examples/       demo app + example vault

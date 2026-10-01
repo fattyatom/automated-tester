@@ -8,6 +8,10 @@
  *   npm run qa -- path <a> <b>          shortest link path between two notes
  *   npm run qa -- mermaid [note] [-d N] mermaid diagram of the vault (or a neighbourhood)
  *   npm run qa -- steps                 the step library — phrasing the ACs must use
+ *   npm run qa -- find <term...>        notes matching keywords / entities / catalog ids, ranked (impact analysis)
+ *   npm run qa -- stale [--days N]      knowledge notes by sync age and provenance (default: older than 30 days)
+ *
+ * Lookups accept `--vault <dir>` to read a vault other than the configured one (e.g. one being built).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,6 +19,7 @@ import config from '../qa.config';
 import { allSteps } from './ac/steps';
 import { Feature, loadModel } from './knowledge/model';
 import { hasSampleOnly } from './knowledge/credentials';
+import { findNotes, staleReport } from './knowledge/provenance';
 import { coverageReport } from './planner/coverage';
 import { buildPlan, planSummary } from './planner/plan';
 
@@ -26,10 +31,20 @@ const flag = (name: string, def: number) => {
   rest.splice(i, 2);
   return Number.isFinite(v) ? v : def;
 };
+const option = (name: string): string | undefined => {
+  const i = rest.findIndex((a) => a === `--${name}`);
+  return i < 0 ? undefined : rest.splice(i, 2)[1];
+};
 const depth = flag('d', 1);
+const maxAgeDays = flag('days', 30);
+const vaultOverride = option('vault');
 const args = rest;
 
-const model = loadModel(config.vault, config.overlays);
+if (vaultOverride && cmd === 'analyze') {
+  console.error('analyze uses the configured vault; set QA_VAULT instead of --vault.');
+  process.exit(1);
+}
+const model = loadModel(vaultOverride ? [vaultOverride] : config.vault, config.overlays);
 const { graph } = model;
 
 const need = (name: string | undefined, label = 'note'): string => {
@@ -106,6 +121,30 @@ switch (cmd) {
   case 'steps':
     for (const s of allSteps(config)) console.log(`- ${s.example}`);
     break;
+  case 'find': {
+    if (!args.length) {
+      console.error('Usage: npm run qa -- find <keyword|entity|catalog id> [...]');
+      process.exit(1);
+    }
+    const hits = findNotes(graph.notes.values(), args);
+    if (!hits.length) console.log(`No notes match ${args.map((a) => `"${a}"`).join(', ')} — new knowledge (create a note and log a gap).`);
+    for (const h of hits) {
+      const f = model.byId.get(h.id)!;
+      console.log(`${String(h.score).padStart(4)}  ${h.title} [${f.type}]  ${h.file}`);
+      console.log(`      ${h.reasons.join(', ')}${h.sources.length ? `  · source: ${h.sources.join(', ')}` : ''}`);
+    }
+    break;
+  }
+  case 'stale': {
+    const rows = staleReport(graph.notes.values(), new Date(), maxAgeDays);
+    const flagged = rows.filter((r) => r.flags.length);
+    console.log(`${flagged.length} of ${rows.length} knowledge notes need attention (sync older than ${maxAgeDays} days, no provenance, or open conflicts)\n`);
+    for (const r of flagged) {
+      const age = r.ageDays === undefined ? 'never synced' : `${r.ageDays}d since sync`;
+      console.log(`- ${r.title} (${r.file}) — ${age}; ${r.flags.join(', ')}${r.sources.length ? `; source: ${r.sources.join(', ')} @ ${r.sourceUpdated ?? '?'}` : ''}`);
+    }
+    break;
+  }
   default:
     console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0].replace(/^\/\*\*?|^ \* ?/gm, ''));
 }

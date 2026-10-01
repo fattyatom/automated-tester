@@ -1,6 +1,7 @@
 import { KnowledgeGraph } from './graph';
 import { Note, loadVault } from './vault';
 import { credentialScenarios, parseCredentials } from './credentials';
+import { provenance } from './provenance';
 
 export interface FieldSpec {
   name: string;
@@ -47,6 +48,9 @@ export interface Feature {
   /** For flows: ordered feature ids. */
   flow: string[];
   tags: string[];
+  /** Provenance (`source:` catalog ids / local:<path>) and lookup `keywords:` — see provenance.ts. */
+  sources: string[];
+  keywords: string[];
 }
 
 export interface ProductModel {
@@ -311,6 +315,7 @@ export function buildModel(notes: Map<string, Note>): ProductModel {
       return (n?.frontmatter.role ? String(n.frontmatter.role) : n?.title ?? r.replace(/^\[\[|\]\]$/g, '')).toLowerCase();
     });
     const fm = note.frontmatter;
+    const prov = provenance(note);
     features.push({
       id: note.id,
       title: note.title,
@@ -327,6 +332,8 @@ export function buildModel(notes: Map<string, Note>): ProductModel {
       vagueCriteria: vague,
       flow: extractFlow(note, graph),
       tags: note.tags,
+      sources: prov.sources,
+      keywords: prov.keywords,
     });
   }
 

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "catalog": {
+      "type": "remote",
+      "url": "{env:CATALOG_MCP_URL}",
+      "enabled": false,
+      "headers": {
+        "Authorization": "Bearer {env:CATALOG_MCP_TOKEN}"
+      }
+    }
+  }
+}
