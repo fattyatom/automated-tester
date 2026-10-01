@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { CredentialsSpec, loadCredentials } from './knowledge/credentials';
 import type { StepDefinition } from './ac/steps';
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
@@ -59,26 +60,55 @@ export interface QaConfig {
   };
   /** Working dir for analysis output (model.json, plan.json, coverage.md, discovery). */
   workDir: string;
+  /** The vault's credentials.md, when present (secrets already resolved from env). */
+  credentials?: CredentialsSpec;
 }
 
-export type QaConfigInput = Pick<QaConfig, 'baseURL' | 'personas'> & {
+export type QaConfigInput = {
+  /** Fallback when neither QA_BASE_URL nor credentials.md sets one. */
+  baseURL: string;
   vault: string | string[];
   overlays?: string[];
-  auth: AuthConfig;
+  /** Fallback personas; credentials.md personas replace these. */
+  personas?: Record<string, Persona>;
+  auth?: Partial<AuthConfig>;
   steps?: StepDefinition[];
   explore?: Partial<Omit<ExploreConfig, 'crawl'>> & { crawl?: Partial<ExploreConfig['crawl']> };
   report?: Partial<QaConfig['report']>;
   workDir?: string;
 };
 
+/**
+ * Precedence (highest first): QA_BASE_URL env → the vault's credentials.md → qa.config.ts.
+ * credentials.md is the per-machine file (like .env); qa.config.ts holds shared defaults.
+ */
 export function defineQaConfig(input: QaConfigInput): QaConfig {
   const explore = input.explore ?? {};
+  const vault = Array.isArray(input.vault) ? input.vault : [input.vault];
+  const creds = loadCredentials(vault);
+  const personas: Record<string, Persona> =
+    creds && Object.keys(creds.personas).length
+      ? Object.fromEntries(Object.entries(creds.personas).map(([k, p]) => [k, { username: p.username, password: p.password, roles: p.roles }]))
+      : input.personas ?? {};
+  for (const [name, p] of Object.entries(personas)) {
+    if (!p.username || !p.password) {
+      console.warn(`[qa] persona "${name}" has an empty username/password — check credentials.md or the env vars it references`);
+    }
+  }
+  const auth: AuthConfig = {
+    loginRoute: creds?.login.route ?? input.auth?.loginRoute ?? '/login',
+    usernameField: creds?.login.usernameField ?? input.auth?.usernameField ?? 'Email',
+    passwordField: creds?.login.passwordField ?? input.auth?.passwordField ?? 'Password',
+    submit: creds?.login.submit ?? input.auth?.submit ?? 'Sign in',
+    login: input.auth?.login,
+  };
   return {
-    baseURL: input.baseURL,
-    vault: Array.isArray(input.vault) ? input.vault : [input.vault],
+    baseURL: process.env.QA_BASE_URL ?? creds?.baseURL ?? input.baseURL,
+    vault,
+    credentials: creds,
     overlays: input.overlays ?? ['.qa/overlay'],
-    personas: input.personas,
-    auth: input.auth,
+    personas,
+    auth,
     steps: input.steps ?? [],
     workDir: input.workDir ?? '.qa',
     report: { outputDir: 'qa-report', ...input.report },
@@ -97,13 +127,13 @@ export function defineQaConfig(input: QaConfigInput): QaConfig {
 
 export function personaFor(config: QaConfig, nameOrRole?: string): [string, Persona] {
   const entries = Object.entries(config.personas);
-  if (!entries.length) throw new Error('No personas configured in qa.config.ts');
+  if (!entries.length) throw new Error('No personas configured — add them to the vault\'s credentials.md (copy sample.credentials.md)');
   if (!nameOrRole) return entries[0];
   const key = nameOrRole.toLowerCase().trim();
   const hit =
     entries.find(([name]) => name.toLowerCase() === key) ??
     entries.find(([, p]) => p.roles.some((r) => r.toLowerCase() === key));
-  if (!hit) throw new Error(`No persona or role named "${nameOrRole}" in qa.config.ts personas`);
+  if (!hit) throw new Error(`No persona or role named "${nameOrRole}" — check personas in credentials.md`);
   return hit;
 }
 

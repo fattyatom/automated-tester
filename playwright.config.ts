@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 import qa from './qa.config';
 
-// No QA_BASE_URL → test the bundled demo app (started automatically).
-const useDemo = !process.env.QA_BASE_URL;
+// Targeting the bundled demo app → start it automatically.
+const DEMO_URL = 'http://localhost:4321';
+const useDemo = new URL(qa.baseURL).origin === DEMO_URL;
 const executablePath = process.env.PW_CHROMIUM_PATH;
 
 export default defineConfig({
@@ -30,6 +31,6 @@ export default defineConfig({
     { name: 'exploratory', testDir: './tests/exploratory', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: useDemo
-    ? { command: 'npm run demo', url: 'http://localhost:4321/health', reuseExistingServer: !process.env.CI, stdout: 'ignore' }
+    ? { command: 'npm run demo', url: `${DEMO_URL}/health`, reuseExistingServer: !process.env.CI, stdout: 'ignore' }
     : undefined,
 });

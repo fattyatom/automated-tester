@@ -14,6 +14,7 @@ import path from 'node:path';
 import config from '../qa.config';
 import { allSteps } from './ac/steps';
 import { Feature, loadModel } from './knowledge/model';
+import { hasSampleOnly } from './knowledge/credentials';
 import { coverageReport } from './planner/coverage';
 import { buildPlan, planSummary } from './planner/plan';
 
@@ -66,7 +67,12 @@ switch (cmd) {
     );
     fs.writeFileSync(path.join(config.workDir, 'coverage.md'), coverageReport(model, plan, config));
     console.log(`Vault: ${config.vault.join(', ')}  (${graph.notes.size} notes, ${graph.edges.length} links, ${graph.unresolved.length} unresolved)`);
-    console.log(`Pages: ${model.pages.length}  Flows: ${model.flows.length}\n`);
+    console.log(`Pages: ${model.pages.length}  Flows: ${model.flows.length}`);
+    console.log(config.credentials
+      ? `Target: ${config.baseURL}  (credentials: ${config.credentials.file}, personas: ${Object.keys(config.personas).join(', ') || 'none'})\n`
+      : hasSampleOnly(config.vault)
+        ? `⚠ No credentials.md — copy sample.credentials.md to credentials.md in the vault and fill it in.\n`
+        : `Target: ${config.baseURL}\n`);
     console.table(planSummary(plan));
     console.log(`\nWrote ${config.workDir}/model.json, plan.json, coverage.md`);
     break;

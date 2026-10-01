@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { builtInSteps, compileStep } from '../../src/ac/steps';
 import { KnowledgeGraph } from '../../src/knowledge/graph';
-import { applyRules, loadModel, parseCriteria, parseFieldTable, routeRegex } from '../../src/knowledge/model';
+import { credentialScenarios, hasSampleOnly, loadCredentials, parseCredentials, secretValues } from '../../src/knowledge/credentials';
+import { applyRules, buildModel, loadModel, parseCriteria, parseFieldTable, routeRegex } from '../../src/knowledge/model';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadVault, parseNote } from '../../src/knowledge/vault';
@@ -148,5 +149,60 @@ test.describe('example vault → model → plan', () => {
     expect(plan.tampering.length).toBe(config.explore.paramValues.length);
     expect(plan.fieldCases.some((c) => c.field.name === 'Display name' && c.mode === 'server' && c.expect === 'reject')).toBe(true);
     expect(plan.stateChecks.map((s) => s.kind).sort()).toEqual(['back-then-resubmit', 'double-submit', 'reload-each-step', 'session-loss-mid-flow']);
+  });
+});
+
+test.describe('credentials.md (like .env)', () => {
+  const fm = {
+    type: 'credentials',
+    baseURL: '${QA_TEST_URL:-https://default.example}',
+    landing: '/',
+    login: { route: '/signin', failureMessage: 'Nope', protectedRoutes: ['/app'] },
+    logout: { button: 'Sign out', landsOn: '/signin' },
+    personas: { standard: { username: 'a@b.co', password: '${QA_TEST_PASS}', landsOn: '/app', welcomeText: 'Hi' } },
+  };
+
+  test('env interpolation with defaults; roles default to persona name', () => {
+    const spec = parseCredentials(fm, 'credentials.md', { QA_TEST_PASS: 's3cret!' });
+    expect(spec.baseURL).toBe('https://default.example');
+    expect(spec.personas.standard).toMatchObject({ password: 's3cret!', roles: ['standard'] });
+    expect(parseCredentials(fm, 'x', { QA_TEST_URL: 'https://ci.example' }).baseURL).toBe('https://ci.example');
+  });
+
+  test('expected behaviour becomes executable scenarios', () => {
+    const scenarios = credentialScenarios(parseCredentials(fm, 'x', {}), 'credentials');
+    expect(scenarios.map((s) => s.name)).toEqual([
+      'Anonymous visitor lands on the expected page',
+      'Anonymous visit to /app redirects to login',
+      'standard logs in and lands on the expected page',
+      'Wrong password is rejected',
+      'Logout ends the session',
+    ]);
+    for (const s of scenarios) for (const st of s.steps) expect(compileStep(st.text, st.keyword, builtInSteps).def, st.text).toBeTruthy();
+  });
+
+  test('secrets are masked in agent context packs, labels are not', () => {
+    const notes = new Map([parseNote('credentials.md', `---\npasswordField: Password\npersonas:\n  x:\n    password: hunter22\n---\nThe password is hunter22 [[Login]]`), parseNote('Login.md', '# Login')].map((n) => [n.id, n]));
+    const ctx = new KnowledgeGraph(notes).context('Login', 1);
+    expect(ctx).not.toContain('hunter22');
+    expect(ctx).toContain('"passwordField":"Password"');
+    expect(secretValues({ token: 'abc123', label: 'abc' })).toEqual(['abc123']);
+  });
+
+  test('real file is found, sample is ignored as a note, templates and %% comments are skipped', () => {
+    const root = test.info().outputPath('cred-vault');
+    fs.mkdirSync(path.join(root, 'Templates'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'sample.credentials.md'), '---\ntype: credentials\n---\n');
+    fs.writeFileSync(path.join(root, 'Templates', 'Page.md'), '---\nroute: /{{x}}\n---\n');
+    fs.writeFileSync(path.join(root, 'Home.md'), '---\nroute: /\n---\n## Acceptance Criteria\n%%\nScenario: hidden\n  Given I reload the page\n%%\n');
+    expect(hasSampleOnly([root])).toBe(true);
+    expect(loadCredentials([root])).toBeUndefined();
+    expect([...loadVault([root]).keys()]).toEqual(['home']);
+    expect(buildModel(loadVault([root])).byId.get('home')!.scenarios).toEqual([]);
+
+    fs.writeFileSync(path.join(root, 'credentials.md'), '---\ntype: credentials\nlogin:\n  route: /signin\n---\n');
+    fs.writeFileSync(path.join(root, 'Login.md'), '---\ntype: auth\n---\n# Login');
+    expect(loadCredentials([root])!.login.route).toBe('/signin');
+    expect(buildModel(loadVault([root])).byId.get('login')!.route).toBe('/signin');
   });
 });

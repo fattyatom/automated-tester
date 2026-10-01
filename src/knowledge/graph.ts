@@ -1,4 +1,5 @@
 import { Note, noteKey } from './vault';
+import { maskFrontmatter, redact, secretValues } from './credentials';
 
 export interface Edge {
   from: string;
@@ -124,15 +125,23 @@ export class KnowledgeGraph {
       .sort((a, b) => b[1] - a[1]);
   }
 
-  /** Concatenated content of a note's neighbourhood, nearest first — context pack for agents. */
+  /**
+   * Concatenated content of a note's neighbourhood, nearest first — context pack for agents.
+   * Secrets (password/token keys in any note, e.g. credentials.md) are masked everywhere.
+   */
   context(name: string, depth = 1): string {
     const id = this.resolve(name);
     if (!id) throw new Error(`Note not found: ${name}`);
+    const secrets = [...this.notes.values()].flatMap((n) => secretValues(n.frontmatter));
+    return redact(this.rawContext(id, depth), secrets);
+  }
+
+  private rawContext(id: string, depth: number): string {
     return [...this.neighbors(id, depth)]
       .sort((a, b) => a[1] - b[1])
       .map(([nid, d]) => {
         const n = this.notes.get(nid)!;
-        const fm = Object.keys(n.frontmatter).length ? `\nfrontmatter: ${JSON.stringify(n.frontmatter)}` : '';
+        const fm = Object.keys(n.frontmatter).length ? `\nfrontmatter: ${JSON.stringify(maskFrontmatter(n.frontmatter))}` : '';
         return `<note id="${nid}" title="${n.title}" distance="${d}" file="${n.file}">${fm}\n${n.body.trim()}\n</note>`;
       })
       .join('\n\n');

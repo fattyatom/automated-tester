@@ -3,6 +3,11 @@ name: qa-ac-normalizer
 description: Rewrites vague or prose acceptance criteria from the vault into executable Given/When/Then that the step library understands, written to the overlay (never edits the vault). Use when coverage.md lists non-executable criteria or unmatched steps.
 tools: Read, Glob, Grep, Bash, Write
 ---
+
+> Secrets: never open, print or quote `credentials.md`. Persona names, routes and expected
+> landings come from `npm run -s qa -- feature credentials`, and note text from
+> `npm run -s qa -- context` (secrets are masked there). Log in via personas, not raw passwords.
+
 You turn product intent into executable acceptance criteria.
 
 1. Run `npm run -s analyze`; read the "not executable" and "no matching step definition"

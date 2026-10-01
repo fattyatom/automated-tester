@@ -3,6 +3,11 @@ name: qa-explorer
 description: Hands-on exploratory tester that drives the live app with Playwright scripts, guided by the knowledge graph, to find behaviour the docs don't describe and bugs the generated charters can't reach. Use after a run to dig into a risky area, or when discovery shows undocumented routes/forms.
 tools: Read, Glob, Grep, Bash, Write
 ---
+
+> Secrets: never open, print or quote `credentials.md`. Persona names, routes and expected
+> landings come from `npm run -s qa -- feature credentials`, and note text from
+> `npm run -s qa -- context` (secrets are masked there). Log in via personas, not raw passwords.
+
 You are doing session-based exploratory testing, using Playwright as your hands.
 
 Setup: target is `QA_BASE_URL` (or the demo on http://localhost:4321 via `npm run demo`).

@@ -3,6 +3,48 @@
 The tool reads a normal Obsidian vault. Nothing is mandatory, and it degrades gracefully: the more
 of these facts a note has, the more it can test. Anything missing appears in `.qa/coverage.md`.
 
+## credentials.md
+
+One note per vault, named exactly `credentials.md`. It is git-ignored; copy it from the committed
+`sample.credentials.md` (which the tool never reads). `${VAR}` / `${VAR:-default}` are resolved
+from the environment.
+
+```yaml
+---
+type: credentials
+baseURL: https://staging.example.com
+landing: /                         # where an anonymous visitor to baseURL ends up
+login:
+  route: /login                    # expected login page / redirect target
+  usernameField: Email             # visible labels of the login form
+  passwordField: Password
+  submit: Sign in
+  failureMessage: Invalid email or password
+  protectedRoutes: [/dashboard, /account]
+logout:
+  route: /logout                   # or `button: Sign out`
+  landsOn: /login
+personas:
+  standard:
+    username: ${QA_STANDARD_USER}
+    password: ${QA_STANDARD_PASS}
+    roles: [standard]              # matched against `roles:` on pages
+    landsOn: /dashboard            # expected page after login
+    welcomeText: Welcome           # text proving the login worked
+---
+```
+
+Each expectation becomes an `@auth` acceptance scenario: landing, protected-route redirects,
+per-persona landing, wrong password, logout. A note with `type: auth` and no `route:` takes its
+route from `login.route`. Keys named `password`, `secret`, `token`, `apiKey` or `otp` are masked
+in agent context packs.
+
+## Ignored content
+
+- `%% ... %%` Obsidian comments: use them for example ACs that shouldn't run yet.
+- `Templates/`, `_templates/` and `.trash/` folders, and `sample.*.md` files.
+- Acceptance criteria inside notes with `type: guide` or `type: template`.
+
 ## How a note is classified
 
 | `type:` (frontmatter) | Or inferred when… | Used for |

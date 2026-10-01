@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { QaConfig } from '../config';
+import { personaFor, type QaConfig } from '../config';
 import type { Feature, ProductModel } from '../knowledge/model';
 import { fillParams, hasParams, routeRegex } from '../knowledge/model';
 import { fillField, findAction, findField, visibleErrors } from '../explore/interact';
@@ -63,6 +63,16 @@ export const builtInSteps: StepDefinition[] = [
     await ctx.page.goto(auth.loginRoute);
     await fillField(await findField(ctx.page, auth.usernameField), user);
     await fillField(await findField(ctx.page, auth.passwordField), pass ?? '');
+    await (await findAction(ctx.page, auth.submit)).click();
+    await ctx.page.waitForLoadState('domcontentloaded');
+  }),
+
+  step(String.raw`${S} (?:log|sign)s? (?:in|on) as ${Q} with (?:a |an )?(?:wrong|invalid|incorrect|bad) password`, 'I log in as "customer" with a wrong password', async (ctx, who) => {
+    const { auth } = ctx.config;
+    const [, persona] = personaFor(ctx.config, who);
+    await ctx.page.goto(auth.loginRoute);
+    await fillField(await findField(ctx.page, auth.usernameField), persona.username);
+    await fillField(await findField(ctx.page, auth.passwordField), `wrong-${Date.now()}`);
     await (await findAction(ctx.page, auth.submit)).click();
     await ctx.page.waitForLoadState('domcontentloaded');
   }),

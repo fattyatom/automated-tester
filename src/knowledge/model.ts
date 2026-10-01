@@ -1,5 +1,6 @@
 import { KnowledgeGraph } from './graph';
 import { Note, loadVault } from './vault';
+import { credentialScenarios, parseCredentials } from './credentials';
 
 export interface FieldSpec {
   name: string;
@@ -284,7 +285,9 @@ export function buildModel(notes: Map<string, Note>): ProductModel {
   for (const note of notes.values()) {
     const scenarios: Scenario[] = [];
     const vague: string[] = [];
-    for (const s of note.sections.filter((s) => AC_HEADING.test(s.heading))) {
+    // Guides and templates contain example criteria that must never run.
+    const documentation = /^(guide|template|meta|readme)$/i.test(String(note.frontmatter.type ?? ''));
+    for (const s of documentation ? [] : note.sections.filter((s) => AC_HEADING.test(s.heading))) {
       // Skip nested sub-sections already covered by a parent AC section.
       const parent = note.sections.find((p) => p !== s && p.level < s.level && AC_HEADING.test(p.heading) && p.content.includes(s.content));
       if (parent) continue;
@@ -292,6 +295,9 @@ export function buildModel(notes: Map<string, Note>): ProductModel {
       const parsed = parseCriteria(named + s.content, note.id);
       scenarios.push(...parsed.scenarios);
       vague.push(...parsed.vague);
+    }
+    if (String(note.frontmatter.type).toLowerCase() === 'credentials') {
+      scenarios.push(...credentialScenarios(parseCredentials(note.frontmatter, note.file), note.id));
     }
     let fields: FieldSpec[] = [];
     if (Array.isArray(note.frontmatter.fields)) {
@@ -322,6 +328,13 @@ export function buildModel(notes: Map<string, Note>): ProductModel {
       flow: extractFlow(note, graph),
       tags: note.tags,
     });
+  }
+
+  // The login page's route lives in credentials.md; an `auth` note without its own route inherits it.
+  const credsNote = [...notes.values()].find((n) => String(n.frontmatter.type).toLowerCase() === 'credentials');
+  if (credsNote) {
+    const loginRoute = parseCredentials(credsNote.frontmatter, credsNote.file).login.route;
+    for (const f of features) if (f.type === 'auth' && !f.route) f.route = loginRoute;
   }
 
   const byId = new Map(features.map((f) => [f.id, f]));
@@ -358,7 +371,7 @@ export function buildModel(notes: Map<string, Note>): ProductModel {
     graph,
     features,
     byId,
-    pages: features.filter((f) => f.route),
+    pages: features.filter((f) => f.route && f.type !== 'credentials'),
     flows: features.filter((f) => f.flow.length > 1),
   };
 }

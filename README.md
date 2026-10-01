@@ -64,19 +64,40 @@ planted bugs, and tests it against `examples/vault`. A run currently reports:
 All acceptance criteria pass, and one scenario is reported `fixme` because it uses a step the
 library doesn't know yet.
 
-## Pointing it at your product
+## Testing your own site
+
+`vault/` is a starter Obsidian vault for your product. Open it in Obsidian and begin with `_Start Here`.
 
 ```bash
-QA_BASE_URL=https://staging.example.com \
-QA_VAULT=../product-vault \
-QA_CUSTOMER_USER=... QA_CUSTOMER_PASS=... \
+cp vault/sample.credentials.md vault/credentials.md   # git-ignored, like .env
+# edit: baseURL, landing page, login page, test accounts, where each persona lands
+npm run analyze      # "Target:" line confirms it now points at your site
 npm test
 ```
 
-Edit `qa.config.ts` for personas, the login form (or a custom `login()` for SSO/MFA), project
-steps, and `explore.failOn`, the severity at which findings fail a test. See
-[docs/VAULT_CONVENTIONS.md](docs/VAULT_CONVENTIONS.md) for what the notes can contain. None of it
-is mandatory: the tool degrades gracefully and lists what's missing in `.qa/coverage.md`.
+`credentials.md` works like `.env`:
+
+| File | In git? | Purpose |
+|---|---|---|
+| `vault/sample.credentials.md` | ✅ committed | Documented template. The tool ignores it. |
+| `vault/credentials.md` | 🚫 git-ignored | Your real values, kept on your machine and in your local Obsidian vault. |
+
+- Values can reference env vars, `${QA_ADMIN_PASS}` or `${VAR:-default}`, so CI can inject secrets.
+- Passwords are masked in everything agents read (`npm run qa -- context`).
+- The file also says what *should* happen: where an anonymous visitor lands, which pages bounce to
+  login, where each persona lands, the wrong-password message, and where logout leads. Those
+  become `@auth` acceptance tests automatically, so a brand-new vault already tests the login contract.
+- After the first run, `.qa/coverage.md` → **"Live routes missing from the vault"** lists the
+  pages the crawler found that you haven't documented yet. That's your to-do list for growing the vault.
+
+Which vault is tested: `QA_VAULT` if set, else `./vault` once it has a `credentials.md`, else the
+bundled demo. `QA_BASE_URL` overrides the target URL for a single run. Edit `qa.config.ts` for a
+custom `login()` (SSO/MFA), project steps, and `explore.failOn`, the severity at which findings
+fail a test. See [docs/VAULT_CONVENTIONS.md](docs/VAULT_CONVENTIONS.md) for the note format. None
+of it is mandatory: the tool degrades gracefully and lists what's missing in `.qa/coverage.md`.
+
+> Use test accounts on a non-production environment. The exploratory charters submit forms,
+> double-click buttons and tamper with URLs.
 
 ## Graph lookup CLI
 
@@ -121,5 +142,6 @@ src/ac/         step library
 src/explore/    QaSession (oracles, findings), interaction helpers, flow walker
 src/report/     findings/traceability reporter
 tests/          acceptance.spec.ts, exploratory/*.spec.ts, unit/
+vault/          starter vault for YOUR product (sample.credentials.md, templates, guide)
 examples/       demo app + example vault
 ```

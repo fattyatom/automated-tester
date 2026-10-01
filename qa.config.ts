@@ -1,33 +1,26 @@
+import fs from 'node:fs';
 import { defineQaConfig } from './src/config';
 
 /**
- * Point this at your environment and your vault. Everything else is inferred from the notes.
- * Defaults target the bundled demo app + example vault so `npm test` works out of the box.
+ * Which vault to test:
+ *   1. QA_VAULT env var, if set
+ *   2. ./vault — your product's knowledge base — once it has a credentials.md
+ *   3. ./examples/vault — the bundled demo (ShopLite)
+ *
+ * Target URL, login form and personas come from the vault's credentials.md (git-ignored, like
+ * .env; see vault/sample.credentials.md). QA_BASE_URL overrides the URL for one-off runs.
  */
+const vault = process.env.QA_VAULT ?? (fs.existsSync('./vault/credentials.md') ? './vault' : './examples/vault');
+
 export default defineQaConfig({
-  baseURL: process.env.QA_BASE_URL ?? 'http://localhost:4321',
-  vault: process.env.QA_VAULT ?? './examples/vault',
+  baseURL: 'http://localhost:4321',
+  vault,
   overlays: ['.qa/overlay'],
 
-  personas: {
-    customer: {
-      username: process.env.QA_CUSTOMER_USER ?? 'user@example.com',
-      password: process.env.QA_CUSTOMER_PASS ?? 'Passw0rd!',
-      roles: ['customer'],
-    },
-    admin: {
-      username: process.env.QA_ADMIN_USER ?? 'admin@example.com',
-      password: process.env.QA_ADMIN_PASS ?? 'Admin123!',
-      roles: ['admin'],
-    },
-  },
-
   auth: {
-    loginRoute: '/login',
-    usernameField: 'Email',
-    passwordField: 'Password',
-    submit: 'Sign in',
-    // login: async (page, persona) => { ...SSO / MFA / API-token login... },
+    // Everything else (route, field labels, submit button) comes from credentials.md.
+    // For SSO / MFA / API-token logins, replace the form login entirely:
+    // login: async (page, persona, config) => { ... },
   },
 
   // Project-specific steps go here (the qa-step-author agent adds to this list).
@@ -39,6 +32,6 @@ export default defineQaConfig({
 
   report: {
     outputDir: 'qa-report',
-    // writeToVault: './examples/vault/_QA',
+    // writeToVault: `${vault}/_QA Runs`,
   },
 });

@@ -99,7 +99,9 @@ export function parseNote(file: string, raw: string): Note {
     }
     body = body.slice(fm[0].length);
   }
-  body = body.replace(/\r\n/g, '\n');
+  // Obsidian comments (%% ... %%) are invisible in the vault, so they are invisible to us too —
+  // templates use them for examples that should not run until filled in.
+  body = body.replace(/\r\n/g, '\n').replace(/%%[\s\S]*?%%/g, '');
   const sections = parseSections(body);
   const codeless = stripCode(body);
 
@@ -131,13 +133,18 @@ export function parseNote(file: string, raw: string): Note {
   };
 }
 
+/** Obsidian template folders hold `{{placeholders}}`, not product facts. */
+const IGNORED_DIRS = /^(templates?|_templates?|\.trash|node_modules)$/i;
+/** `sample.credentials.md` etc. are committed templates, never product facts. */
+const IGNORED_FILES = /^sample\..+\.md$/i;
+
 function walk(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    if (e.name.startsWith('.') || e.name === 'node_modules') return [];
+    if (e.name.startsWith('.')) return [];
     const full = path.join(dir, e.name);
-    if (e.isDirectory()) return walk(full);
-    return e.name.toLowerCase().endsWith('.md') ? [full] : [];
+    if (e.isDirectory()) return IGNORED_DIRS.test(e.name) ? [] : walk(full);
+    return e.name.toLowerCase().endsWith('.md') && !IGNORED_FILES.test(e.name) ? [full] : [];
   });
 }
 

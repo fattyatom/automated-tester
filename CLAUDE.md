@@ -18,3 +18,6 @@ docs/VAULT_CONVENTIONS.md for the note format.
 - Never edit `examples/vault` to make a test pass; vault facts come from the product. Agents write
   to `.qa/overlay/`.
 - The demo app's bugs are intentional (marked `BUG:`); don't fix them.
+- `credentials.md` holds real secrets: never print, quote, commit or copy it. Read vault context
+  through `npm run qa -- context` (it masks secrets). Only `examples/vault/credentials.md`
+  (public demo values) is committed; change the template in `vault/sample.credentials.md`.
