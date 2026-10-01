@@ -11,7 +11,9 @@
     "test:acceptance": "playwright test --project=acceptance",
     "test:explore": "playwright test --project=exploratory",
     "report": "playwright show-report qa-report/html",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "agents:sync": "tsx src/agents/sync.ts",
+    "agents:check": "tsx src/agents/sync.ts --check"
   },
   "repository": {
     "type": "git",
