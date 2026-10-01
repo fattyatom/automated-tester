@@ -1,5 +1,9 @@
 ---
 type: rule
+source: []          # catalog ids (SHOP-142) or local:<path>; kb agents fill these in
+source_updated: 
+synced_at: 
+keywords: []
 ---
 # {{title}}
 
